@@ -1,0 +1,48 @@
+# --- Python (backend) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+
+# --- Node (frontend) ---
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# --- Linters / caches (cross-cutting) ---
+.ruff_cache/
+.eslintcache
+
+# --- Local data ---
+data/uploads/
+data/db/*.sqlite
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Editor / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Secrets / env ---
+.env
+.env.*
+!.env.example
