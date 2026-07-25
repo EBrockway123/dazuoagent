@@ -21,6 +21,17 @@ import type {
   RoomLayoutItem,
 } from "@/types";
 
+// Payload accepted by `POST /projects` — kept loose here because the
+// generated OpenAPI type for `ProjectCreate` requires *every* field.
+// Inline callers rarely need that much ceremony.
+export interface CreateProjectPayload {
+  name: string;
+  customer_name: string;
+  customer_phone?: string | null;
+  address?: string | null;
+  rooms?: RoomCreatePayload[];
+}
+
 export const materialsApi = {
   list: (params?: {
     board_type?: string;
@@ -33,6 +44,10 @@ export const materialsApi = {
 export const projectsApi = {
   list: () => api.get<{ items: Project[]; total: number }>("/projects").then((r) => r.data),
   get: (id: number) => api.get<Project>(`/projects/${id}`).then((r) => r.data),
+
+  /** Create a project. Returns the created Project row. */
+  create: (payload: CreateProjectPayload) =>
+    api.post<Project>("/projects", payload).then((r) => r.data),
 
   /** Wholesale replace the room list for a project (drops existing rooms). */
   replaceRooms: (id: number, rooms: RoomCreatePayload[]) =>

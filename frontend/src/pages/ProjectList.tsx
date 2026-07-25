@@ -1,24 +1,35 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { CreateProjectModal } from "@/components/CreateProjectModal";
 import { projectsApi } from "@/lib/api";
 import type { Project } from "@/types";
-import { Link } from "react-router-dom";
 
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
+  function refresh() {
     projectsApi.list().then((res) => {
       setProjects(res.items);
       setLoading(false);
     });
-  }, []);
+  }
+
+  useEffect(refresh, []);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">客户项目</h1>
-        <button className="btn-primary">+ 新建项目</button>
+        <button
+          className="btn-primary"
+          onClick={() => setShowCreate(true)}
+          data-testid="open-create-project"
+        >
+          + 新建项目
+        </button>
       </div>
 
       {loading ? (
@@ -26,7 +37,13 @@ export function ProjectList() {
       ) : projects.length === 0 ? (
         <div className="card p-8 text-center text-slate-500">
           还没有项目。先到{" "}
-          <button className="text-brand-600 underline">新建项目</button> 试试。
+          <button
+            className="text-brand-600 underline"
+            onClick={() => setShowCreate(true)}
+          >
+            新建项目
+          </button>{" "}
+          试试。
         </div>
       ) : (
         <div className="card divide-y">
@@ -45,6 +62,12 @@ export function ProjectList() {
           ))}
         </div>
       )}
+
+      <CreateProjectModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSaved={refresh}
+      />
     </div>
   );
 }
