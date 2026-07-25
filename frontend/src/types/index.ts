@@ -37,6 +37,22 @@ export interface Room {
   openings: string | null;
 }
 
+export interface RoomLayoutItem {
+  /** Spatial position on the 2D floor plan canvas (mm). */
+  room_id: number;
+  x_mm: number;
+  y_mm: number;
+  rotation_deg: number;
+}
+
+export interface RoomCreatePayload {
+  name: string;
+  width_mm: number;
+  length_mm: number;
+  area_sqm: number;
+  openings?: string | null;
+}
+
 export interface Project {
   id: number;
   name: string;

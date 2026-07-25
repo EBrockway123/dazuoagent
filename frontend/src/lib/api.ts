@@ -17,6 +17,8 @@ import type {
   Material,
   Project,
   Quotation,
+  RoomCreatePayload,
+  RoomLayoutItem,
 } from "@/types";
 
 export const materialsApi = {
@@ -31,6 +33,22 @@ export const materialsApi = {
 export const projectsApi = {
   list: () => api.get<{ items: Project[]; total: number }>("/projects").then((r) => r.data),
   get: (id: number) => api.get<Project>(`/projects/${id}`).then((r) => r.data),
+
+  /** Wholesale replace the room list for a project (drops existing rooms). */
+  replaceRooms: (id: number, rooms: RoomCreatePayload[]) =>
+    api
+      .put<Project>(`/projects/${id}/rooms`, { rooms })
+      .then((r) => r.data),
+
+  /** Read the saved spatial layout (positions + rotations) for a project's rooms. */
+  getLayout: (id: number) =>
+    api.get<{ rooms: RoomLayoutItem[] }>(`/projects/${id}/layout`).then((r) => r.data),
+
+  /** Persist spatial positions for the current room list. */
+  updateLayout: (id: number, layout: RoomLayoutItem[]) =>
+    api
+      .put<{ rooms: RoomLayoutItem[] }>(`/projects/${id}/layout`, { rooms: layout })
+      .then((r) => r.data),
 };
 
 export const designsApi = {

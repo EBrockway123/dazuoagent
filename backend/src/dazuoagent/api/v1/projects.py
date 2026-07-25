@@ -10,8 +10,11 @@ from sqlalchemy.orm import Session
 from dazuoagent.api.deps import get_db
 from dazuoagent.schemas.project import (
     ProjectCreate,
+    ProjectLayoutResponse,
+    ProjectLayoutUpdate,
     ProjectListResponse,
     ProjectRead,
+    ProjectRoomsReplace,
 )
 from dazuoagent.services import project_service
 
@@ -65,6 +68,64 @@ def get_project(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到该项目")
     return ProjectRead.model_validate(project)
+
+
+@router.put(
+    "/{project_id}/rooms",
+    response_model=ProjectRead,
+    summary="整组替换房间清单",
+    description=(
+        "接受平面图解析后给出的房间清单,或让用户批量修改后整组提交。会清空已有房间再插入新列表。"
+    ),
+)
+def replace_rooms(
+    project_id: int,
+    payload: ProjectRoomsReplace,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectRead:
+    """项目不存在时返回 404。"""
+    project = project_service.replace_rooms(db, project_id, payload)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到该项目")
+    return ProjectRead.model_validate(project)
+
+
+@router.get(
+    "/{project_id}/layout",
+    response_model=ProjectLayoutResponse,
+    summary="读取平面图布局",
+    description="返回 `Project.floor_plan_layout` 解析后的房间坐标 + 旋转角。",
+)
+def get_layout(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectLayoutResponse:
+    """布局字段为 NULL 或格式损坏时返回空 `rooms: []`。"""
+    project = project_service.get_project(db, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到该项目")
+    return ProjectLayoutResponse(rooms=project_service.parse_layout(project))
+
+
+@router.put(
+    "/{project_id}/layout",
+    response_model=ProjectLayoutResponse,
+    summary="保存平面图布局",
+    description=(
+        "把 FloorPlanCanvas 上房间的位置 + 旋转角持久化。"
+        " 不在当前项目房间清单里的 `room_id` 会被静默丢弃。"
+    ),
+)
+def put_layout(
+    project_id: int,
+    payload: ProjectLayoutUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectLayoutResponse:
+    """项目不存在时返回 404。"""
+    project, kept = project_service.update_layout(db, project_id, payload)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到该项目")
+    return ProjectLayoutResponse(rooms=kept)
 
 
 @router.delete(
