@@ -13,9 +13,13 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from dazuoagent.api.v1.router import api_router
 from dazuoagent.core.config import settings
+from dazuoagent.core.rate_limit import limiter
 
 
 def create_app() -> FastAPI:
@@ -72,14 +76,25 @@ def create_app() -> FastAPI:
         ],
     )
 
-    # CORS — allow the Vite dev server during development. Tighten `allow_origins`
-    # for production; the wildcard is fine while everything runs on localhost.
+    # --- Rate limiting (slowapi) ---
+    # Per-IP default of 60/minute (set in `core.rate_limit`). Tighter
+    # limits can be applied per-route via `@limiter.limit("10/minute")`.
+    # The middleware does the actual enforcement on every request;
+    # `app.state.limiter = limiter` is the lookup hook the `@limiter.limit`
+    # decorator uses at request time.
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # CORS — allow the Vite dev server during development. Tighten
+    # `allow_origins` and `allow_methods` for production; the wildcard
+    # headers are fine while everything runs on localhost.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
     )
 
     app.include_router(api_router, prefix="/api/v1")

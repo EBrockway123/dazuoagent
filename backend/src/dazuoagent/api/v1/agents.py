@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from dazuoagent.agent.agent import chat as agent_chat
 from dazuoagent.agent.agent import parse_floorplan as agent_parse_floorplan
 from dazuoagent.api.deps import get_db
 from dazuoagent.core.config import settings
+from dazuoagent.core.rate_limit import limiter
 
 router = APIRouter()
 
@@ -46,6 +47,14 @@ class ChatResponse(BaseModel):
     suggested_actions: list[str] = []
 
 
+# Chat is the most expensive endpoint (real LLM call, possible tool
+# execution). Cap to 10 turns/minute per IP — a real conversation rarely
+# exceeds 1 call/sec, this just stops runaway loops and abuse.
+#
+# Decorator order matters: `@router.post` must be the OUTER one so the
+# version registered with FastAPI is the slowapi-wrapped function.
+# Otherwise FastAPI captures the bare function and the limit never
+# fires.
 @router.post(
     "/chat",
     response_model=ChatResponse,
@@ -55,8 +64,18 @@ class ChatResponse(BaseModel):
         "如带上 `project_id`,智能体可以调用项目级工具(查房间清单等)。"
     ),
 )
-def chat(payload: ChatRequest) -> ChatResponse:
-    """根据 `settings.llm_provider` 自动路由到真实 LLM 或 mock 实现。"""
+@limiter.limit("10/minute")
+def chat(
+    request: Request,
+    payload: ChatRequest,
+    response: Response,  # FastAPI-injected; slowapi writes X-RateLimit-* onto it
+) -> ChatResponse:
+    """根据 `settings.llm_provider` 自动路由到真实 LLM 或 mock 实现。
+
+    `request` 参数必须存在 — slowapi 靠它取客户端 IP 来做限流。
+    `response` 是 FastAPI 自动注入的 Response 对象, slowapi 用它写
+    `X-RateLimit-*` 响应头(剩余配额、命中上限时间)。
+    """
     history = [m.model_dump() for m in payload.messages]
     result = agent_chat(history=history, project_id=payload.project_id)
     return ChatResponse(**result)

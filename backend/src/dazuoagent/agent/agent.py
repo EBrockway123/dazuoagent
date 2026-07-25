@@ -172,17 +172,25 @@ def _build_llm():
 
     Returns a LangChain chat model (any object exposing `.invoke(messages)`)
     so the agent-building code stays provider-agnostic.
+
+    Timeouts / retries:
+    - `timeout=20s` per HTTP request — caps the worst-case hung call
+      before the route handler ever sees an exception.
+    - `max_retries=2` on transient 5xx — let DeepSeek/OpenAI ride out
+      a momentary blip instead of failing the user.
     """
     from langchain_openai import ChatOpenAI
 
     provider = settings.llm_provider
+    common_kwargs: dict = {"temperature": 0.4, "timeout": 20.0, "max_retries": 2}
+
     if provider == "openai":
         if not settings.openai_api_key:
             raise RuntimeError("LLM_PROVIDER=openai but OPENAI_API_KEY is not set")
         return ChatOpenAI(
             model=settings.openai_model,
             api_key=settings.openai_api_key,
-            temperature=0.4,
+            **common_kwargs,
         )
 
     if provider == "deepseek":
@@ -193,7 +201,7 @@ def _build_llm():
             model=settings.deepseek_model,
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
-            temperature=0.4,
+            **common_kwargs,
         )
 
     if provider == "anthropic":
@@ -205,7 +213,9 @@ def _build_llm():
         return ChatAnthropic(
             model=settings.anthropic_model,
             api_key=settings.anthropic_api_key,
-            temperature=0.4,
+            temperature=common_kwargs["temperature"],
+            timeout=common_kwargs["timeout"],
+            max_retries=common_kwargs["max_retries"],
         )
 
     raise RuntimeError(f"Unknown llm_provider {provider!r}")
