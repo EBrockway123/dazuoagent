@@ -62,6 +62,7 @@ export interface Project {
   floor_plan_file: string | null;
   floor_plan_layout: string | null;
   rooms: Room[];
+  designs: Design[];
   created_at: string;
   updated_at: string;
 }

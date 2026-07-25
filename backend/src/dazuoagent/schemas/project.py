@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from dazuoagent.schemas.design import DesignRead
+
 
 class RoomBase(BaseModel):
     name: str = Field(..., max_length=64)
@@ -44,6 +46,7 @@ class ProjectRead(ProjectBase):
 
     id: int
     rooms: list[RoomRead] = Field(default_factory=list)
+    designs: list[DesignRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

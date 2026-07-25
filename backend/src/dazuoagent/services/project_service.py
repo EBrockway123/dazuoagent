@@ -6,7 +6,7 @@ import json
 import logging
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from dazuoagent.models.project import Project, Room
 from dazuoagent.schemas.project import (
@@ -27,7 +27,18 @@ def list_projects(db: Session, *, skip: int = 0, limit: int = 50) -> tuple[list[
 
 
 def get_project(db: Session, project_id: int) -> Project | None:
-    return db.get(Project, project_id)
+    """Fetch a project with `rooms` and `designs` eagerly loaded.
+
+    The 2D canvas (FloorPlanCanvas) and the 3D viewer (Design3DViewer) both
+    need these relationships populated in a single round-trip; `selectinload`
+    does that with two IN-queries instead of N+1.
+    """
+    stmt = (
+        select(Project)
+        .where(Project.id == project_id)
+        .options(selectinload(Project.rooms), selectinload(Project.designs))
+    )
+    return db.execute(stmt).scalar_one_or_none()
 
 
 def create_project(db: Session, payload: ProjectCreate) -> Project:

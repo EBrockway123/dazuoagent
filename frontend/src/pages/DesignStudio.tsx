@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { Design3DViewer } from "@/components/Design3DViewer";
 import { FloorPlanCanvas } from "@/components/FloorPlanCanvas";
 import { agentsApi, projectsApi } from "@/lib/api";
 import type { ChatMessage, Project } from "@/types";
 
 // DesignStudio is the heart of the editor: 2D floor plan on the left, 3D
 // preview on the right, and an Agent chat panel docked at the bottom.
-// Today: 2D canvas (FloorPlanCanvas) is real, 3D viewer is a placeholder
-// until react-three-fiber wiring lands.
+// Both surfaces pull from the same project (rooms + designs).
 
 export function DesignStudio() {
   const { projectId } = useParams();
@@ -64,11 +64,15 @@ export function DesignStudio() {
         </div>
       </section>
 
-      {/* 3D preview placeholder */}
+      {/* 3D preview */}
       <section className="card col-span-7 flex flex-col">
         <div className="px-4 py-3 border-b font-medium text-sm">3D 预览 (Three.js)</div>
-        <div className="flex-1 grid place-items-center text-slate-400 text-sm">
-          <span>react-three-fiber 场景占位 — 后续接入</span>
+        <div className="flex-1 p-2 min-h-0">
+          {!project ? (
+            <div className="h-full grid place-items-center text-slate-400 text-sm">加载项目中…</div>
+          ) : (
+            <Design3DViewer project={project} />
+          )}
         </div>
       </section>
 
