@@ -45,4 +45,12 @@ Thumbs.db
 # --- Secrets / env ---
 .env
 .env.*
-!.env.exampleopenapi.json
+!.env.example
+
+# --- Codegen ---
+# OpenAPI spec fetched from the running backend (input to the
+# openapi-typescript-codegen tool).
+openapi.json
+# Generated TypeScript tree under src/types/api/. Regenerate locally
+# with `npm run gen:types` — don't commit the machine-specific output.
+frontend/src/types/api/
