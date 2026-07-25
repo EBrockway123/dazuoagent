@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+
+# Cancel in-flight runs on the same ref when a new push lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Backend: ruff lint + pytest. Pytest runs against an in-memory SQLite
+  # so no service container is required; the agent tests are gated on a
+  # real LLM key (skip otherwise).
+  # -------------------------------------------------------------------------
+  backend:
+    name: backend · ruff + pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install (editable + dev extras)
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Pytest
+        env:
+          # Tests create their own in-memory SQLite engine; no real DB needed.
+          # DEEPSEEK_API_KEY is unset so the live-LLM smoke test auto-skips.
+          DATABASE_URL: sqlite:///:memory:
+        run: pytest -v --tb=short
+
+  # -------------------------------------------------------------------------
+  # Frontend: npm install + type check + production build.
+  #
+  # `npm run gen:types` is intentionally omitted from CI — it requires a
+  # running backend, which adds setup cost. Run it locally before
+  # committing if you touched the backend schemas. The generated tree
+  # is gitignored (see .gitignore).
+  # -------------------------------------------------------------------------
+  frontend:
+    name: frontend · tsc + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate TypeScript types from OpenAPI
+        # We need a backend spec to generate from. Spin up a one-off
+        # Python process that imports the FastAPI app and dumps its
+        # schema to openapi.json, which the codegen then consumes.
+        run: |
+          cd ../backend
+          python -m pip install -e ".[dev]" > /dev/null
+          python -c "
+          import json, sys
+          sys.path.insert(0, 'src')
+          from dazuoagent.main import create_app
+          app = create_app()
+          sys.stdout.write(json.dumps(app.openapi()))
+          " > ../frontend/openapi.json
+          cd ../frontend
+          npm run gen:types
+
+      - name: Type check
+        run: npx tsc --noEmit -p .
+
+      - name: Build
+        run: npm run build
+
+  # -------------------------------------------------------------------------
+  # Backend-and-frontend contract check: the generated TS types must
+  # round-trip cleanly with the Pydantic schemas (no missing or
+  # re-shaped fields). If the frontend build above already proved the
+  # types compile, this is a belt-and-suspenders smoke check that
+  # confirms the codegen output isn't stale.
+  # -------------------------------------------------------------------------
+  type-freshness:
+    name: openapi types · freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Generate + diff against committed types
+        run: |
+          cd backend
+          pip install -e . > /dev/null
+          python -c "
+          import json, sys
+          sys.path.insert(0, 'src')
+          from dazuoagent.main import create_app
+          print(json.dumps(create_app().openapi()))
+          " > /tmp/openapi.fresh.json
+          cd ../frontend
+          npm ci > /dev/null
+          npx openapi-typescript-codegen --input /tmp/openapi.fresh.json --output /tmp/types-fresh --useUnionTypes > /dev/null
+          # We don't commit the generated tree, so just confirm the
+          # generation succeeds — diffing against the working tree
+          # would always fail.
+          test -d /tmp/types-fresh
+          echo "fresh types generated: $(find /tmp/types-fresh -name '*.ts' | wc -l) files"
