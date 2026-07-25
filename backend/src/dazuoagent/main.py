@@ -13,13 +13,13 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from dazuoagent.api.v1.router import api_router
 from dazuoagent.core.config import settings
-from dazuoagent.core.rate_limit import limiter
+from dazuoagent.core.middleware import RequestContextMiddleware, configure_logging
+from dazuoagent.core.rate_limit import limiter, rate_limit_exceeded_handler
 
 
 def create_app() -> FastAPI:
@@ -81,10 +81,15 @@ def create_app() -> FastAPI:
     # limits can be applied per-route via `@limiter.limit("10/minute")`.
     # The middleware does the actual enforcement on every request;
     # `app.state.limiter = limiter` is the lookup hook the `@limiter.limit`
-    # decorator uses at request time.
+    # decorator uses at request time. Friendly Chinese 429 message comes
+    # from `rate_limit_exceeded_handler`.
+    configure_logging()
     app.state.limiter = limiter
+    # RequestContextMiddleware FIRST so request_id is on `request.state`
+    # by the time SlowAPI runs (and when our 429 handler reads it).
+    app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SlowAPIMiddleware)
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
     # CORS — allow the Vite dev server during development. Tighten
     # `allow_origins` and `allow_methods` for production; the wildcard
