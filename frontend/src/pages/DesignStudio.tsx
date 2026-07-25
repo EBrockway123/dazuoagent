@@ -43,6 +43,21 @@ export function DesignStudio() {
     try {
       const res = await agentsApi.chat(id, next);
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
+      // Agent may have called add_furniture_to_design — refetch the project
+      // so FloorPlanCanvas and Design3DViewer pick up the new pieces.
+      try {
+        const refreshed = await projectsApi.get(id);
+        setProject(refreshed);
+      } catch {
+        // Refetch failure shouldn't kill the chat flow; show a hint.
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content: "（刷新项目失败,新家具可能没显示。请点刷新重试。）",
+          },
+        ]);
+      }
     } finally {
       setBusy(false);
     }

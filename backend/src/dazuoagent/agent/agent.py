@@ -147,10 +147,23 @@ def _build_agent():
     """
     from langgraph.prebuilt import create_react_agent
 
-    from dazuoagent.agent.langchain_tools import get_project_rooms, list_materials
+    from dazuoagent.agent.langchain_tools import (
+        add_furniture_to_design,
+        get_project_rooms,
+        list_materials,
+        list_project_designs,
+    )
 
     llm = _build_llm()
-    return create_react_agent(llm, [list_materials, get_project_rooms])
+    return create_react_agent(
+        llm,
+        [
+            list_materials,
+            get_project_rooms,
+            list_project_designs,
+            add_furniture_to_design,
+        ],
+    )
 
 
 @lru_cache(maxsize=1)
