@@ -57,7 +57,7 @@ export function ProjectDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="card p-5 lg:col-span-2">
           <h2 className="font-medium mb-3">房间清单</h2>
-          {project.rooms.length === 0 ? (
+          {(project.rooms ?? []).length === 0 ? (
             <div className="text-sm text-slate-500">
               还没有房间。上传平面图后,Agent 会帮你识别出来。
             </div>
@@ -71,7 +71,7 @@ export function ProjectDetail() {
                 </tr>
               </thead>
               <tbody>
-                {project.rooms.map((r) => (
+                {(project.rooms ?? []).map((r) => (
                   <tr key={r.id} className="border-b last:border-0">
                     <td className="py-2">{r.name}</td>
                     <td>

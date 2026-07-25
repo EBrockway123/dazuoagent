@@ -47,7 +47,7 @@ export function QuotationView() {
             </tr>
           </thead>
           <tbody>
-            {quotation.line_items.map((li) => (
+            {(quotation.line_items ?? []).map((li) => (
               <tr key={li.id} className="border-t">
                 <td className="px-4 py-2">{li.description}</td>
                 <td>
@@ -68,11 +68,11 @@ export function QuotationView() {
         </div>
         <div className="flex justify-between">
           <span>人工 / 安装</span>
-          <span>{formatCurrency(quotation.labor_cost)}</span>
+          <span>{formatCurrency(quotation.labor_cost ?? 0)}</span>
         </div>
         <div className="flex justify-between">
           <span>税费</span>
-          <span>{formatCurrency(quotation.tax)}</span>
+          <span>{formatCurrency(quotation.tax ?? 0)}</span>
         </div>
         <div className="flex justify-between font-semibold pt-2 border-t">
           <span>合计</span>

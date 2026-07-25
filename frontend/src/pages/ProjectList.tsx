@@ -38,7 +38,7 @@ export function ProjectList() {
             >
               <div>
                 <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.customer_name} · {p.rooms.length} 个房间</div>
+                <div className="text-xs text-slate-500">{p.customer_name} · {(p.rooms ?? []).length} 个房间</div>
               </div>
               <div className="text-xs text-slate-400">→</div>
             </Link>

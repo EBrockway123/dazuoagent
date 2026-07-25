@@ -197,10 +197,11 @@ function SceneLegend({ data }: { data: SceneData }) {
 // ---------------------------------------------------------------------------
 
 function buildSceneData(project: Project): SceneData {
-  const layoutItems = parseLayoutItems(project.floor_plan_layout);
-  const rooms: SceneRoom[] = project.rooms.map((room, idx) => {
+  const layoutItems = parseLayoutItems(project.floor_plan_layout ?? null);
+  const projectRooms = project.rooms ?? [];
+  const rooms: SceneRoom[] = projectRooms.map((room, idx) => {
     const item = layoutItems.get(room.id);
-    const fallbackX = sumWidthsBefore(project.rooms, idx);
+    const fallbackX = sumWidthsBefore(projectRooms, idx);
     const cxMm = item?.x_mm ?? fallbackX;
     const cyMm = item?.y_mm ?? 0;
     return {
@@ -216,8 +217,10 @@ function buildSceneData(project: Project): SceneData {
   const roomCenterById = new Map<number, [number, number]>(
     rooms.map((r) => [r.id, r.center]),
   );
-  const furniture: SceneFurniture[] = project.designs.flatMap((design) =>
-    design.furniture.map((piece) => buildSceneFurniture(piece, design, roomCenterById)),
+  const furniture: SceneFurniture[] = (project.designs ?? []).flatMap((design) =>
+    (design.furniture ?? []).map((piece) =>
+      buildSceneFurniture(piece, design, roomCenterById),
+    ),
   );
 
   return {

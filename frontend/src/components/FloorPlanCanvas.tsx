@@ -46,7 +46,7 @@ const MAX_CANVAS_H = 30000;
 export function FloorPlanCanvas({ project, onSaved }: Props) {
   // ---- 状态 --------------------------------------------------------------
 
-  const [rooms, setRooms] = useState<DraftRoom[]>(project.rooms);
+  const [rooms, setRooms] = useState<DraftRoom[]>(project.rooms ?? []);
   const [positions, setPositions] = useState<Map<number, PositionState>>(() =>
     loadInitialPositions(project),
   );
@@ -58,7 +58,7 @@ export function FloorPlanCanvas({ project, onSaved }: Props) {
   // 项目切换时同步初始状态(避免深拷贝引用变化引起的奇怪重渲染)
   const projectId = project.id;
   useEffect(() => {
-    setRooms(project.rooms);
+    setRooms(project.rooms ?? []);
     setPositions(loadInitialPositions(project));
     setSelectedId(null);
     setDirty(false);
@@ -204,14 +204,15 @@ export function FloorPlanCanvas({ project, onSaved }: Props) {
         openings: r.openings ?? null,
       }));
       const updated = await projectsApi.replaceRooms(project.id, persistable);
+      const updatedRooms = updated.rooms ?? [];
 
       // 2. 上传布局(只对已存在 id 写位置)
-      const persistedIds = new Set(updated.rooms.map((r) => r.id));
+      const persistedIds = new Set(updatedRooms.map((r) => r.id));
       const layoutItems: RoomLayoutItem[] = [];
       rooms.forEach((room, idx) => {
         const pos = positions.get(room.id) ?? defaultPositionFor(idx, rooms);
         // 草稿 id → 映射回服务端给的真实 id(按顺序一一对应)
-        const realId = updated.rooms[idx]?.id ?? room.id;
+        const realId = updatedRooms[idx]?.id ?? room.id;
         if (!persistedIds.has(realId)) return;
         layoutItems.push({
           room_id: realId,
@@ -223,14 +224,14 @@ export function FloorPlanCanvas({ project, onSaved }: Props) {
       await projectsApi.updateLayout(project.id, layoutItems);
 
       // 3. 把"草稿"标记去掉,避免下次 dirty 计算错
-      setRooms(updated.rooms.map((r) => ({ ...r, isDraft: false })));
+      setRooms(updatedRooms.map((r) => ({ ...r, isDraft: false })));
       // 重建 positions:用真实 id
       const nextPositions = new Map<number, PositionState>();
       layoutItems.forEach((item) =>
         nextPositions.set(item.room_id, {
           x_mm: item.x_mm,
           y_mm: item.y_mm,
-          rotation_deg: item.rotation_deg,
+          rotation_deg: item.rotation_deg ?? 0,
         }),
       );
       setPositions(nextPositions);
@@ -455,8 +456,8 @@ function loadInitialPositions(project: Project): Map<number, PositionState> {
   let cursorX = PADDING_MM;
   const baseY = PADDING_MM;
 
-  project.rooms.forEach((room) => {
-    const saved = parseSavedLayout(project.floor_plan_layout).get(room.id);
+  (project.rooms ?? []).forEach((room) => {
+    const saved = parseSavedLayout(project.floor_plan_layout ?? null).get(room.id);
     if (saved) {
       map.set(room.id, saved);
     } else {
